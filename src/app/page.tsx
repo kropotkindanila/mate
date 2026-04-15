@@ -29,6 +29,9 @@ export default function Home() {
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [creatingFolder, setCreatingFolder] = useState(false)
+  const [folderMenuOpen, setFolderMenuOpen] = useState<string | null>(null)
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
+  const [renameFolderName, setRenameFolderName] = useState('')
 
   const supabase = createClient()
 
@@ -44,6 +47,13 @@ export default function Home() {
     }
     init()
   }, [])
+
+  useEffect(() => {
+    if (!folderMenuOpen) return
+    function close() { setFolderMenuOpen(null) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [folderMenuOpen])
 
   async function fetchBookmarks() {
     const { data } = await supabase
@@ -75,7 +85,7 @@ export default function Home() {
         ? trimmed
         : `https://${trimmed}`
 
-    const folderId = selectedFolder === 'inbox' ? null : selectedFolder
+    const folderId = (selectedFolder === 'inbox' || selectedFolder === 'all') ? null : selectedFolder
 
     const { error } = await supabase
       .from('bookmarks')
@@ -120,12 +130,37 @@ export default function Home() {
     router.replace('/login')
   }
 
-  const visibleBookmarks = bookmarks.filter(b =>
-    selectedFolder === 'inbox' ? b.folder_id === null : b.folder_id === selectedFolder
-  )
+  async function handleRenameFolder(folderId: string) {
+    if (!renameFolderName.trim()) return
+    await supabase
+      .from('folders')
+      .update({ name: renameFolderName.trim() })
+      .eq('id', folderId)
+    setRenamingFolderId(null)
+    setRenameFolderName('')
+    fetchFolders()
+  }
+
+  async function handleDeleteFolder(folderId: string) {
+    await supabase
+      .from('folders')
+      .delete()
+      .eq('id', folderId)
+    if (selectedFolder === folderId) setSelectedFolder('inbox')
+    fetchFolders()
+    fetchBookmarks()
+  }
+
+  const visibleBookmarks = bookmarks.filter(b => {
+    if (selectedFolder === 'all') return true
+    if (selectedFolder === 'inbox') return b.folder_id === null
+    return b.folder_id === selectedFolder
+  })
 
   const selectedFolderName =
-    selectedFolder === 'inbox'
+    selectedFolder === 'all'
+      ? 'All'
+      : selectedFolder === 'inbox'
       ? 'Inbox'
       : folders.find(f => f.id === selectedFolder)?.name ?? 'Folder'
 
@@ -145,6 +180,17 @@ export default function Home() {
 
         <nav className="flex flex-col gap-0.5">
           <button
+            onClick={() => setSelectedFolder('all')}
+            className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+              selectedFolder === 'all'
+                ? 'bg-gray-100 text-gray-900 font-medium'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+          >
+            All
+          </button>
+
+          <button
             onClick={() => setSelectedFolder('inbox')}
             className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
               selectedFolder === 'inbox'
@@ -156,17 +202,63 @@ export default function Home() {
           </button>
 
           {folders.map(folder => (
-            <button
-              key={folder.id}
-              onClick={() => setSelectedFolder(folder.id)}
-              className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                selectedFolder === folder.id
-                  ? 'bg-gray-100 text-gray-900 font-medium'
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              {folder.name}
-            </button>
+            <div key={folder.id} className="relative group">
+              {renamingFolderId === folder.id ? (
+                <form
+                  onSubmit={e => { e.preventDefault(); handleRenameFolder(folder.id) }}
+                  className="flex items-center gap-1 px-2 py-1"
+                >
+                  <input
+                    autoFocus
+                    value={renameFolderName}
+                    onChange={e => setRenameFolderName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') { setRenamingFolderId(null); setRenameFolderName('') } }}
+                    className="flex-1 min-w-0 border border-gray-200 rounded px-2 py-1 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-900"
+                  />
+                  <button type="submit" className="text-xs text-gray-500 hover:text-gray-900">✓</button>
+                  <button
+                    type="button"
+                    onClick={() => { setRenamingFolderId(null); setRenameFolderName('') }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >✕</button>
+                </form>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setSelectedFolder(folder.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                      selectedFolder === folder.id
+                        ? 'bg-gray-100 text-gray-900 font-medium'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    {folder.name}
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setFolderMenuOpen(folderMenuOpen === folder.id ? null : folder.id) }}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-gray-600 transition-all text-xs leading-none"
+                  >
+                    •••
+                  </button>
+                  {folderMenuOpen === folder.id && (
+                    <div className="absolute right-0 top-full mt-0.5 bg-white border border-gray-100 rounded-lg shadow-md z-10 py-1 min-w-[96px]">
+                      <button
+                        onClick={() => { setRenamingFolderId(folder.id); setRenameFolderName(folder.name); setFolderMenuOpen(null) }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => { handleDeleteFolder(folder.id); setFolderMenuOpen(null) }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-gray-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           ))}
         </nav>
 
