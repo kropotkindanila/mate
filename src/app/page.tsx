@@ -50,9 +50,15 @@ export default function Home() {
     setStatus('saving')
     setErrorMsg('')
 
+    const trimmed = url.trim()
+    const normalizedUrl =
+      trimmed.startsWith('http://') || trimmed.startsWith('https://')
+        ? trimmed
+        : `https://${trimmed}`
+
     const { error } = await supabase
       .from('bookmarks')
-      .insert({ url: url.trim(), user_id: userId })
+      .insert({ url: normalizedUrl, user_id: userId })
 
     if (error) {
       setErrorMsg(error.message)
@@ -86,7 +92,7 @@ export default function Home() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input
-            type="url"
+            type="text"
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="Paste a URL…"
