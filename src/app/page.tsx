@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 
 type Bookmark = {
   id: string
@@ -10,14 +11,27 @@ type Bookmark = {
 }
 
 export default function Home() {
+  const router = useRouter()
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  const supabase = createClient()
 
   useEffect(() => {
-    fetchBookmarks()
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+      setUserId(user.id)
+      fetchBookmarks()
+    }
+    init()
   }, [])
 
   async function fetchBookmarks() {
@@ -31,13 +45,14 @@ export default function Home() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!url.trim()) return
+    if (!url.trim() || !userId) return
 
     setStatus('saving')
     setErrorMsg('')
 
-    // TODO: replace null with (await supabase.auth.getUser()).data.user?.id when auth is added
-    const { error } = await supabase.from('bookmarks').insert({ url: url.trim(), user_id: null })
+    const { error } = await supabase
+      .from('bookmarks')
+      .insert({ url: url.trim(), user_id: userId })
 
     if (error) {
       setErrorMsg(error.message)
@@ -50,10 +65,23 @@ export default function Home() {
     }
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.replace('/login')
+  }
+
   return (
     <main className="min-h-screen bg-white px-4 py-16">
       <div className="w-full max-w-md mx-auto">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Mate</h1>
+        <div className="flex items-baseline justify-between mb-1">
+          <h1 className="text-2xl font-semibold text-gray-900">Mate</h1>
+          <button
+            onClick={handleLogout}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
         <p className="text-gray-400 text-sm mb-8">Save anything worth your time.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
