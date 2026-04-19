@@ -14,6 +14,7 @@ import {
   Settings,
   ChevronOpen,
   ChevronClose,
+  MateLogo,
 } from '@/components/icons'
 
 type Bookmark = {
@@ -230,12 +231,7 @@ export default function Home() {
 
           {/* Logo */}
           <div className="h-[36px] flex items-center px-[10px] shrink-0">
-            <div className="flex items-center gap-[8px]">
-              <span className="text-orange-brand">
-                <BookmarkIcon width={20} height={20} viewBox="0 0 16 16" />
-              </span>
-              <span className={`${LABEL_SM} text-text-strong`}>mate</span>
-            </div>
+            <MateLogo />
           </div>
 
           {/* Main nav */}
