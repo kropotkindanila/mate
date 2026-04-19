@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
@@ -31,9 +31,20 @@ type Folder = {
 
 type View = 'all' | 'unsorted' | 'archive' | string
 
+type Toast = { id: number; message: string; type: 'success' | 'error' }
+
 const LABEL_SM = 'text-[14px] leading-[20px] tracking-[-0.084px] font-medium'
 const PARA_XS = 'text-[12px] leading-[16px]'
 const SUBHEAD = 'text-[11px] leading-[12px] tracking-[0.22px] font-medium uppercase'
+
+function isValidUrl(text: string) {
+  try {
+    const url = new URL(text)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 function formatHost(url: string) {
   try {
@@ -105,6 +116,15 @@ export default function Home() {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameFolderName, setRenameFolderName] = useState('')
 
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const toastCounter = useRef(0)
+
+  function showToast(message: string, type: 'success' | 'error') {
+    const id = ++toastCounter.current
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000)
+  }
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -124,6 +144,42 @@ export default function Home() {
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
   }, [folderMenuOpen])
+
+  useEffect(() => {
+    async function handleKeyDown(e: KeyboardEvent) {
+      if (!(e.key === 'v' && (e.metaKey || e.ctrlKey))) return
+      const target = e.target as HTMLElement
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable
+      ) return
+
+      try {
+        const text = (await navigator.clipboard.readText()).trim()
+        if (!isValidUrl(text)) {
+          showToast('Not a valid link', 'error')
+          return
+        }
+        if (!userId) return
+        const folder_id =
+          typeof view === 'string' && view !== 'all' && view !== 'unsorted' && view !== 'archive'
+            ? view
+            : null
+        const { error } = await supabase
+          .from('bookmarks')
+          .insert({ url: text, user_id: userId, folder_id })
+        if (!error) {
+          fetchBookmarks()
+          showToast('Saved!', 'success')
+        }
+      } catch {
+        // clipboard access denied or unavailable
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [userId, view])
 
   async function fetchBookmarks() {
     const { data } = await supabase
@@ -223,6 +279,7 @@ export default function Home() {
     : FolderIcon
 
   return (
+    <>
     <div className="min-h-screen bg-bg-weak flex justify-center p-[16px]">
       <div className="w-full max-w-[700px] flex gap-[15px] h-[calc(100vh-32px)]">
 
@@ -432,6 +489,33 @@ export default function Home() {
 
       </div>
     </div>
+
+    {/* Toast notifications */}
+    <div className="fixed bottom-[16px] right-[16px] flex flex-col gap-[8px] z-50 pointer-events-none">
+      {toasts.map(toast => (
+        <div
+          key={toast.id}
+          className="bg-bg-white border border-stroke-soft rounded-10 px-[16px] py-[12px] shadow-sm pointer-events-auto flex items-center gap-[8px]"
+          style={{ fontFamily: 'Inter, sans-serif' }}
+        >
+          {toast.type === 'success' ? (
+            <span className="text-orange-brand shrink-0">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 0C3.58172 0 0 3.58172 0 8C0 12.4183 3.58172 16 8 16C12.4183 16 16 12.4183 16 8C16 3.58172 12.4183 0 8 0ZM11.7803 6.28033L7.28033 10.7803C6.98744 11.0732 6.51256 11.0732 6.21967 10.7803L4.21967 8.78033C3.92678 8.48744 3.92678 8.01256 4.21967 7.71967C4.51256 7.42678 4.98744 7.42678 5.28033 7.71967L6.75 9.18934L10.7197 5.21967C11.0126 4.92678 11.4874 4.92678 11.7803 5.21967C12.0732 5.51256 12.0732 5.98744 11.7803 6.28033Z" />
+              </svg>
+            </span>
+          ) : (
+            <span className="text-text-soft shrink-0">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 0C3.58172 0 0 3.58172 0 8C0 12.4183 3.58172 16 8 16C12.4183 16 16 12.4183 16 8C16 3.58172 12.4183 0 8 0ZM7.25 4.75C7.25 4.33579 7.58579 4 8 4C8.41421 4 8.75 4.33579 8.75 4.75V8.25C8.75 8.66421 8.41421 9 8 9C7.58579 9 7.25 8.66421 7.25 8.25V4.75ZM8 12C7.44772 12 7 11.5523 7 11C7 10.4477 7.44772 10 8 10C8.55228 10 9 10.4477 9 11C9 11.5523 8.55228 12 8 12Z" />
+              </svg>
+            </span>
+          )}
+          <span className={`${LABEL_SM} text-text-strong`}>{toast.message}</span>
+        </div>
+      ))}
+    </div>
+    </>
   )
 }
 
