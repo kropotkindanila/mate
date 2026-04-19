@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: "Mate",
   description: "A minimal bookmark manager",
+  appleWebApp: {
+    title: "Mate",
+  },
 };
 
 export default function RootLayout({
