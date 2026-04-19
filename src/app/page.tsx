@@ -151,7 +151,7 @@ export default function Home() {
       await Promise.all([fetchBookmarks(), fetchFolders()])
     }
     init()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!folderMenuOpen) return
@@ -217,19 +217,20 @@ export default function Home() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [userId, view])
+  }, [userId, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchBookmarks() {
     const { data } = await supabase
       .from('bookmarks')
       .select('id, url, created_at, archived, bookmark_folders(folder_id)')
       .order('created_at', { ascending: false })
-    setBookmarks((data ?? []).map((b: any) => ({
+    type Row = { id: string; url: string; created_at: string; archived: boolean; bookmark_folders: { folder_id: string }[] }
+    setBookmarks((data ?? []).map((b: Row) => ({
       id: b.id,
       url: b.url,
       created_at: b.created_at,
       archived: b.archived,
-      folder_ids: (b.bookmark_folders ?? []).map((bf: { folder_id: string }) => bf.folder_id),
+      folder_ids: (b.bookmark_folders ?? []).map((bf) => bf.folder_id),
     })))
     setLoading(false)
   }
