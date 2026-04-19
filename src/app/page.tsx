@@ -808,7 +808,7 @@ function SidebarItem({
       onClick={onClick}
       className={[
         'group w-full flex items-center gap-[8px] px-[12px] py-[8px] rounded-10 transition-colors text-left',
-        active ? 'bg-bg-soft' : 'hover:bg-bg-soft',
+        active ? 'bg-bg-soft' : 'hover:bg-bg-sidebar-hover',
       ].join(' ')}
     >
       <span className={active ? 'text-icon-strong' : 'text-icon-soft group-hover:text-text-sub transition-colors'}>

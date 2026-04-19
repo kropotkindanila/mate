@@ -12,6 +12,7 @@ const config: Config = {
         'bg-weak': 'var(--bg-weak-50)',
         'bg-white': 'var(--bg-white-0)',
         'bg-soft': 'var(--bg-soft-200)',
+        'bg-sidebar-hover': 'var(--bg-sidebar-hover)',
         'text-strong': 'var(--text-strong-950)',
         'text-sub': 'var(--text-sub-600)',
         'text-soft': 'var(--text-soft-400)',
