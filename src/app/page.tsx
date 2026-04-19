@@ -14,6 +14,11 @@ import {
   Settings,
   ChevronOpen,
   ChevronClose,
+  Menu,
+  Link,
+  Trash,
+  Warning,
+  Success,
   MateLogo,
 } from '@/components/icons'
 
@@ -22,6 +27,7 @@ type Bookmark = {
   url: string
   created_at: string
   folder_id: string | null
+  archived: boolean
 }
 
 type Folder = {
@@ -57,7 +63,7 @@ function formatHost(url: string) {
 function faviconUrl(url: string) {
   try {
     const host = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?domain=${host}&sz=32`
+    return `https://www.google.com/s2/favicons?domain=${host}&sz=16`
   } catch {
     return `https://www.google.com/s2/favicons?domain=${url}&sz=32`
   }
@@ -113,6 +119,7 @@ export default function Home() {
   const [saving, setSaving] = useState(false)
 
   const [folderMenuOpen, setFolderMenuOpen] = useState<string | null>(null)
+  const [bookmarkMenuOpen, setBookmarkMenuOpen] = useState<string | null>(null)
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameFolderName, setRenameFolderName] = useState('')
 
@@ -146,6 +153,13 @@ export default function Home() {
   }, [folderMenuOpen])
 
   useEffect(() => {
+    if (!bookmarkMenuOpen) return
+    function close() { setBookmarkMenuOpen(null) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [bookmarkMenuOpen])
+
+  useEffect(() => {
     async function handleKeyDown(e: KeyboardEvent) {
       if (!(e.key === 'v' && (e.metaKey || e.ctrlKey))) return
       const target = e.target as HTMLElement
@@ -158,7 +172,7 @@ export default function Home() {
       try {
         const text = (await navigator.clipboard.readText()).trim()
         if (!isValidUrl(text)) {
-          showToast('Not a valid link', 'error')
+          showToast("Looks like this isn't a URL. Try copying the link again.", 'error')
           return
         }
         if (!userId) return
@@ -171,7 +185,7 @@ export default function Home() {
           .insert({ url: text, user_id: userId, folder_id })
         if (!error) {
           fetchBookmarks()
-          showToast('Saved!', 'success')
+          showToast('Link pasted', 'success')
         }
       } catch {
         // clipboard access denied or unavailable
@@ -184,7 +198,7 @@ export default function Home() {
   async function fetchBookmarks() {
     const { data } = await supabase
       .from('bookmarks')
-      .select('id, url, created_at, folder_id')
+      .select('id, url, created_at, folder_id, archived')
       .order('created_at', { ascending: false })
     setBookmarks(data ?? [])
     setLoading(false)
@@ -242,6 +256,12 @@ export default function Home() {
     fetchFolders()
   }
 
+  async function handleDeleteBookmark(bookmarkId: string) {
+    await supabase.from('bookmarks').delete().eq('id', bookmarkId)
+    fetchBookmarks()
+    showToast('Deleted', 'success')
+  }
+
   async function handleDeleteFolder(folderId: string) {
     await supabase.from('folders').delete().eq('id', folderId)
     if (view === folderId) setView('all')
@@ -255,9 +275,10 @@ export default function Home() {
   }
 
   const visibleBookmarks = useMemo(() => bookmarks.filter(b => {
+    if (view === 'archive') return b.archived
+    if (b.archived) return false
     if (view === 'all') return true
     if (view === 'unsorted') return b.folder_id === null
-    if (view === 'archive') return false
     return b.folder_id === view
   }), [bookmarks, view])
 
@@ -326,11 +347,16 @@ export default function Home() {
           <div className="flex flex-col shrink-0">
             <button
               onClick={() => setFoldersOpen(v => !v)}
-              className="w-full flex items-center gap-[4px] px-[12px] py-[6px] rounded-10 text-text-soft hover:text-text-sub transition-colors"
+              className="group w-full flex items-center justify-between px-[12px] py-[6px] rounded-10 transition-colors"
             >
-              <span className={SUBHEAD}>Folders</span>
-              <span className="text-icon-soft">
-                {foldersOpen ? <ChevronOpen /> : <ChevronClose />}
+              <span className="flex items-center gap-[4px]">
+                <span className={`${SUBHEAD} text-text-soft group-hover:text-text-sub transition-colors`}>Folders</span>
+                <span className="text-icon-soft group-hover:text-text-sub transition-colors">
+                  {foldersOpen ? <ChevronClose /> : <ChevronOpen />}
+                </span>
+              </span>
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-icon-soft group-hover:text-text-sub">
+                <Menu />
               </span>
             </button>
             {foldersOpen && (
@@ -360,25 +386,35 @@ export default function Home() {
                         />
                         <button
                           onClick={e => { e.stopPropagation(); setFolderMenuOpen(folderMenuOpen === folder.id ? null : folder.id) }}
-                          className="absolute right-[6px] top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 px-[4px] rounded-4 text-text-soft hover:text-text-sub transition-opacity text-[12px] leading-none"
+                          className="absolute right-[6px] top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-[4px] rounded-6 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
                           aria-label="Folder options"
                         >
-                          •••
+                          <Menu />
                         </button>
                         {folderMenuOpen === folder.id && (
-                          <div className="absolute right-0 top-full mt-[2px] bg-bg-white border border-stroke-soft rounded-8 shadow-sm z-10 py-[4px] min-w-[112px]">
-                            <button
-                              onClick={() => { setRenamingFolderId(folder.id); setRenameFolderName(folder.name); setFolderMenuOpen(null) }}
-                              className={`${PARA_XS} w-full text-left px-[12px] py-[6px] text-text-sub hover:bg-bg-soft`}
-                            >
-                              Rename
-                            </button>
-                            <button
-                              onClick={() => { handleDeleteFolder(folder.id); setFolderMenuOpen(null) }}
-                              className={`${PARA_XS} w-full text-left px-[12px] py-[6px] text-text-sub hover:bg-bg-soft`}
-                            >
-                              Delete
-                            </button>
+                          <div
+                            className="absolute right-0 top-full mt-[4px] z-20 bg-bg-white border border-stroke-soft rounded-12 flex flex-col overflow-hidden w-[183px]"
+                            style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <div className="p-[8px] flex flex-col">
+                              <button
+                                onClick={() => { setRenamingFolderId(folder.id); setRenameFolderName(folder.name); setFolderMenuOpen(null) }}
+                                className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                              >
+                                <span className={LABEL_SM}>Rename</span>
+                              </button>
+                            </div>
+                            <div className="h-px bg-stroke-soft" />
+                            <div className="p-[8px] flex flex-col">
+                              <button
+                                onClick={() => { handleDeleteFolder(folder.id); setFolderMenuOpen(null) }}
+                                className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-error-base hover:bg-error-lighter transition-colors"
+                              >
+                                <Trash className="shrink-0" />
+                                <span className={LABEL_SM}>Delete</span>
+                              </button>
+                            </div>
                           </div>
                         )}
                       </>
@@ -461,25 +497,83 @@ export default function Home() {
                     {group.label}
                   </div>
                   {group.items.map(b => (
-                    <a
-                      key={b.id}
-                      href={b.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-[8px] min-h-[40px] px-[8px] py-[6px] rounded-8 hover:bg-bg-soft transition-colors"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={faviconUrl(b.url)}
-                        alt=""
-                        width={20}
-                        height={20}
-                        className="w-[20px] h-[20px] rounded-4 shrink-0"
-                      />
-                      <span className={`${LABEL_SM} text-text-strong truncate`}>
-                        {formatHost(b.url)}
-                      </span>
-                    </a>
+                    <div key={b.id} className="relative">
+                      <a
+                        href={b.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center justify-between min-h-[40px] px-[8px] py-[6px] rounded-8 hover:bg-bg-weak transition-colors"
+                      >
+                        <div className="flex flex-1 min-w-0 gap-[8px] items-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={faviconUrl(b.url)}
+                            alt=""
+                            width={16}
+                            height={16}
+                            className="w-[16px] h-[16px] shrink-0"
+                          />
+                          <span className={`${LABEL_SM} text-text-strong truncate`}>
+                            {formatHost(b.url)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-[4px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button
+                            onClick={e => { e.preventDefault(); e.stopPropagation() }}
+                            className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
+                            aria-label="Move to folder"
+                          >
+                            <FolderAdd />
+                          </button>
+                          <button
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); setBookmarkMenuOpen(bookmarkMenuOpen === b.id ? null : b.id) }}
+                            className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
+                            aria-label="More options"
+                          >
+                            <Menu />
+                          </button>
+                        </div>
+                      </a>
+                      {bookmarkMenuOpen === b.id && (
+                        <div
+                          className="absolute right-0 top-full mt-[4px] z-20 bg-bg-white border border-stroke-soft rounded-12 flex flex-col overflow-hidden w-[183px]"
+                          style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <div className="p-[8px] flex flex-col">
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(b.url); setBookmarkMenuOpen(null); showToast('Link copied', 'success') }}
+                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                            >
+                              <Link className="shrink-0" />
+                              <span className={LABEL_SM}>Copy link</span>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await supabase.from('bookmarks').update({ archived: true }).eq('id', b.id)
+                                fetchBookmarks()
+                                setBookmarkMenuOpen(null)
+                                showToast('Archived', 'success')
+                              }}
+                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                            >
+                              <Archive className="shrink-0" />
+                              <span className={LABEL_SM}>Archive</span>
+                            </button>
+                          </div>
+                          <div className="h-px bg-stroke-soft" />
+                          <div className="p-[8px] flex flex-col">
+                            <button
+                              onClick={() => { handleDeleteBookmark(b.id); setBookmarkMenuOpen(null) }}
+                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-error-base hover:bg-error-lighter transition-colors"
+                            >
+                              <Trash className="shrink-0" />
+                              <span className={LABEL_SM}>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               ))
@@ -491,27 +585,24 @@ export default function Home() {
     </div>
 
     {/* Toast notifications */}
-    <div className="fixed bottom-[16px] right-[16px] flex flex-col gap-[8px] z-50 pointer-events-none">
+    <div className="fixed bottom-[20px] left-1/2 -translate-x-1/2 flex flex-col gap-[8px] z-50 pointer-events-none items-center">
       {toasts.map(toast => (
         <div
           key={toast.id}
-          className="bg-bg-white border border-stroke-soft rounded-10 px-[16px] py-[12px] shadow-sm pointer-events-auto flex items-center gap-[8px]"
-          style={{ fontFamily: 'Inter, sans-serif' }}
+          className="flex items-center gap-[8px] pl-[8px] pr-[12px] py-[8px] rounded-8 pointer-events-auto"
+          style={{
+            backgroundColor: '#262626',
+            boxShadow: '0px 1px 1px 0px rgba(23,23,23,0.04), 0px 3px 3px 0px rgba(23,23,23,0.02), 0px 6px 6px 0px rgba(23,23,23,0.04), 0px 12px 12px 0px rgba(23,23,23,0.04), 0px 24px 24px 0px rgba(23,23,23,0.04), 0px 48px 48px 0px rgba(23,23,23,0.04), inset 0px -1px 1px 0px rgba(23,23,23,0.06)',
+          }}
         >
           {toast.type === 'success' ? (
-            <span className="text-orange-brand shrink-0">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 0C3.58172 0 0 3.58172 0 8C0 12.4183 3.58172 16 8 16C12.4183 16 16 12.4183 16 8C16 3.58172 12.4183 0 8 0ZM11.7803 6.28033L7.28033 10.7803C6.98744 11.0732 6.51256 11.0732 6.21967 10.7803L4.21967 8.78033C3.92678 8.48744 3.92678 8.01256 4.21967 7.71967C4.51256 7.42678 4.98744 7.42678 5.28033 7.71967L6.75 9.18934L10.7197 5.21967C11.0126 4.92678 11.4874 4.92678 11.7803 5.21967C12.0732 5.51256 12.0732 5.98744 11.7803 6.28033Z" />
-              </svg>
-            </span>
+            <span className="text-green-500 shrink-0"><Success /></span>
           ) : (
-            <span className="text-text-soft shrink-0">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 0C3.58172 0 0 3.58172 0 8C0 12.4183 3.58172 16 8 16C12.4183 16 16 12.4183 16 8C16 3.58172 12.4183 0 8 0ZM7.25 4.75C7.25 4.33579 7.58579 4 8 4C8.41421 4 8.75 4.33579 8.75 4.75V8.25C8.75 8.66421 8.41421 9 8 9C7.58579 9 7.25 8.66421 7.25 8.25V4.75ZM8 12C7.44772 12 7 11.5523 7 11C7 10.4477 7.44772 10 8 10C8.55228 10 9 10.4477 9 11C9 11.5523 8.55228 12 8 12Z" />
-              </svg>
-            </span>
+            <span className="text-orange-brand shrink-0"><Warning /></span>
           )}
-          <span className={`${LABEL_SM} text-text-strong`}>{toast.message}</span>
+          <span className="text-[12px] leading-[16px] font-normal text-white whitespace-nowrap" style={{ fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}>
+            {toast.message}
+          </span>
         </div>
       ))}
     </div>
@@ -536,16 +627,18 @@ function SidebarItem({
     <button
       onClick={onClick}
       className={[
-        'w-full flex items-center gap-[8px] px-[12px] py-[8px] rounded-10 transition-colors text-left',
-        active
-          ? 'bg-bg-soft text-text-strong'
-          : 'text-text-sub hover:bg-bg-soft/50',
+        'group w-full flex items-center gap-[8px] px-[12px] py-[8px] rounded-10 transition-colors text-left',
+        active ? 'bg-bg-soft' : 'hover:bg-bg-soft',
       ].join(' ')}
     >
-      <span className={active ? 'text-icon-strong' : 'text-icon-soft'}>
+      <span className={active ? 'text-icon-strong' : 'text-icon-soft group-hover:text-text-sub transition-colors'}>
         {icon}
       </span>
-      <span className={`${LABEL_SM} flex-1 truncate`}>{label}</span>
+      <span className={[
+        LABEL_SM,
+        'flex-1 truncate',
+        active ? 'text-text-strong' : 'text-text-sub',
+      ].join(' ')}>{label}</span>
       {right}
     </button>
   )

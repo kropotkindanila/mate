@@ -19,11 +19,15 @@ const config: Config = {
         'icon-soft': 'var(--icon-soft-400)',
         'orange-brand': 'var(--orange-500)',
         'stroke-soft': 'var(--stroke-soft-200)',
+        'error-base': 'var(--error-base)',
+        'error-lighter': 'var(--error-lighter)',
       },
       borderRadius: {
         '4': '4px',
+        '6': '6px',
         '8': '8px',
         '10': '10px',
+        '12': '12px',
         '16': '16px',
       },
       fontFamily: {
