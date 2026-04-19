@@ -143,29 +143,25 @@ export default function Home() {
   }, [folderMenuOpen])
 
   useEffect(() => {
-    async function handleKeyDown(e: KeyboardEvent) {
-      if (!(e.metaKey || e.ctrlKey) || e.key !== 'v') return
+    function handlePaste(e: ClipboardEvent) {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
       e.preventDefault()
-      try {
-        const text = await navigator.clipboard.readText()
-        const trimmed = text.trim()
-        if (isValidUrl(trimmed)) {
-          setNewUrl(trimmed)
-          setShowAddUrl(true)
-        } else {
-          setToast('Not a link')
-          if (toastTimer.current) clearTimeout(toastTimer.current)
-          toastTimer.current = setTimeout(() => setToast(null), 3000)
-        }
-      } catch {
-        // Clipboard access denied or unavailable
+      const text = e.clipboardData?.getData('text/plain') ?? ''
+      const trimmed = text.trim()
+      if (!trimmed) return
+      if (isValidUrl(trimmed)) {
+        setNewUrl(trimmed)
+        setShowAddUrl(true)
+      } else {
+        setToast('Not a link')
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast(null), 3000)
       }
     }
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('paste', handlePaste)
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('paste', handlePaste)
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
   }, [])
