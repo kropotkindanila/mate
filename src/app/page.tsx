@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
@@ -49,6 +49,20 @@ function faviconUrl(url: string) {
     return `https://www.google.com/s2/favicons?domain=${host}&sz=32`
   } catch {
     return `https://www.google.com/s2/favicons?domain=${url}&sz=32`
+  }
+}
+
+function isValidUrl(text: string): boolean {
+  try {
+    const url = new URL(text)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    try {
+      const url = new URL(`https://${text}`)
+      return url.hostname.includes('.')
+    } catch {
+      return false
+    }
   }
 }
 
@@ -105,6 +119,9 @@ export default function Home() {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameFolderName, setRenameFolderName] = useState('')
 
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -124,6 +141,34 @@ export default function Home() {
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
   }, [folderMenuOpen])
+
+  useEffect(() => {
+    async function handleKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key !== 'v') return
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+      e.preventDefault()
+      try {
+        const text = await navigator.clipboard.readText()
+        const trimmed = text.trim()
+        if (isValidUrl(trimmed)) {
+          setNewUrl(trimmed)
+          setShowAddUrl(true)
+        } else {
+          setToast('Not a link')
+          if (toastTimer.current) clearTimeout(toastTimer.current)
+          toastTimer.current = setTimeout(() => setToast(null), 3000)
+        }
+      } catch {
+        // Clipboard access denied or unavailable
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
+  }, [])
 
   async function fetchBookmarks() {
     const { data } = await supabase
@@ -361,7 +406,7 @@ export default function Home() {
         </aside>
 
         {/* Main area */}
-        <main className="flex-1 min-w-0 bg-bg-white border border-stroke-soft rounded-16 flex flex-col overflow-hidden">
+        <main className="relative flex-1 min-w-0 bg-bg-white border border-stroke-soft rounded-16 flex flex-col overflow-hidden">
           <header className="flex items-center gap-[4px] py-[12px] pl-[16px] pr-[12px] border-b border-stroke-soft shrink-0">
             <div className="flex items-center gap-[8px] flex-1 min-w-0">
               <span className="text-icon-strong shrink-0">
@@ -431,6 +476,15 @@ export default function Home() {
         </main>
 
       </div>
+      {toast && <Toast message={toast} />}
+    </div>
+  )
+}
+
+function Toast({ message }: { message: string }) {
+  return (
+    <div className={`${PARA_XS} fixed bottom-[24px] left-1/2 -translate-x-1/2 bg-[#171717] text-white px-[14px] py-[8px] rounded-10 shadow-lg pointer-events-none whitespace-nowrap`}>
+      {message}
     </div>
   )
 }
