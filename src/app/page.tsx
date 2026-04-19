@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Lottie from 'lottie-react'
+import bookmarkFillAnimation from './bookmark-fill.json'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
@@ -19,6 +21,7 @@ import {
   Trash,
   Warning,
   Success,
+  Check,
   MateLogo,
 } from '@/components/icons'
 
@@ -26,7 +29,7 @@ type Bookmark = {
   id: string
   url: string
   created_at: string
-  folder_id: string | null
+  folder_ids: string[]
   archived: boolean
 }
 
@@ -120,11 +123,16 @@ export default function Home() {
 
   const [folderMenuOpen, setFolderMenuOpen] = useState<string | null>(null)
   const [bookmarkMenuOpen, setBookmarkMenuOpen] = useState<string | null>(null)
+  const [folderPickerOpen, setFolderPickerOpen] = useState<string | null>(null)
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameFolderName, setRenameFolderName] = useState('')
 
+  const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null)
+
   const [toasts, setToasts] = useState<Toast[]>([])
   const toastCounter = useRef(0)
+  const folderPickerRef = useRef<HTMLDivElement | null>(null)
+  const folderPickerWasOpen = useRef(false)
 
   function showToast(message: string, type: 'success' | 'error') {
     const id = ++toastCounter.current
@@ -160,6 +168,17 @@ export default function Home() {
   }, [bookmarkMenuOpen])
 
   useEffect(() => {
+    if (!folderPickerOpen) return
+    function handleOutsideClick(e: MouseEvent) {
+      if (folderPickerRef.current && !folderPickerRef.current.contains(e.target as Node)) {
+        setFolderPickerOpen(null)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [folderPickerOpen])
+
+  useEffect(() => {
     async function handleKeyDown(e: KeyboardEvent) {
       if (!(e.key === 'v' && (e.metaKey || e.ctrlKey))) return
       const target = e.target as HTMLElement
@@ -180,10 +199,15 @@ export default function Home() {
           typeof view === 'string' && view !== 'all' && view !== 'unsorted' && view !== 'archive'
             ? view
             : null
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('bookmarks')
-          .insert({ url: text, user_id: userId, folder_id })
-        if (!error) {
+          .insert({ url: text, user_id: userId })
+          .select('id')
+          .single()
+        if (!error && inserted) {
+          if (folder_id) {
+            await supabase.from('bookmark_folders').insert({ bookmark_id: inserted.id, folder_id })
+          }
           fetchBookmarks()
           showToast('Link pasted', 'success')
         }
@@ -198,9 +222,15 @@ export default function Home() {
   async function fetchBookmarks() {
     const { data } = await supabase
       .from('bookmarks')
-      .select('id, url, created_at, folder_id, archived')
+      .select('id, url, created_at, archived, bookmark_folders(folder_id)')
       .order('created_at', { ascending: false })
-    setBookmarks(data ?? [])
+    setBookmarks((data ?? []).map((b: any) => ({
+      id: b.id,
+      url: b.url,
+      created_at: b.created_at,
+      archived: b.archived,
+      folder_ids: (b.bookmark_folders ?? []).map((bf: { folder_id: string }) => bf.folder_id),
+    })))
     setLoading(false)
   }
 
@@ -221,11 +251,16 @@ export default function Home() {
     const folder_id = typeof view === 'string' && view !== 'all' && view !== 'unsorted' && view !== 'archive'
       ? view
       : null
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('bookmarks')
-      .insert({ url: normalized, user_id: userId, folder_id })
+      .insert({ url: normalized, user_id: userId })
+      .select('id')
+      .single()
     setSaving(false)
-    if (!error) {
+    if (!error && inserted) {
+      if (folder_id) {
+        await supabase.from('bookmark_folders').insert({ bookmark_id: inserted.id, folder_id })
+      }
       setNewUrl('')
       setShowAddUrl(false)
       fetchBookmarks()
@@ -242,6 +277,7 @@ export default function Home() {
       setNewFolderName('')
       setShowNewFolder(false)
       fetchFolders()
+      showToast('Folder created', 'success')
     }
   }
 
@@ -254,6 +290,7 @@ export default function Home() {
     setRenamingFolderId(null)
     setRenameFolderName('')
     fetchFolders()
+    showToast('Folder renamed', 'success')
   }
 
   async function handleDeleteBookmark(bookmarkId: string) {
@@ -267,6 +304,20 @@ export default function Home() {
     if (view === folderId) setView('all')
     fetchFolders()
     fetchBookmarks()
+    showToast('Deleted', 'success')
+  }
+
+  async function handleMoveToFolder(bookmarkId: string, folderId: string, isSelected: boolean) {
+    if (isSelected) {
+      await supabase.from('bookmark_folders')
+        .delete()
+        .eq('bookmark_id', bookmarkId)
+        .eq('folder_id', folderId)
+    } else {
+      await supabase.from('bookmark_folders')
+        .insert({ bookmark_id: bookmarkId, folder_id: folderId })
+    }
+    fetchBookmarks()
   }
 
   async function handleLogout() {
@@ -278,13 +329,13 @@ export default function Home() {
     if (view === 'archive') return b.archived
     if (b.archived) return false
     if (view === 'all') return true
-    if (view === 'unsorted') return b.folder_id === null
-    return b.folder_id === view
+    if (view === 'unsorted') return b.folder_ids.length === 0
+    return b.folder_ids.includes(view)
   }), [bookmarks, view])
 
   const grouped = useMemo(() => groupBookmarksByDate(visibleBookmarks), [visibleBookmarks])
 
-  const unsortedCount = bookmarks.filter(b => b.folder_id === null).length
+  const unsortedCount = bookmarks.filter(b => b.folder_ids.length === 0).length
   const allCount = bookmarks.length
 
   const currentViewLabel =
@@ -298,6 +349,14 @@ export default function Home() {
     : view === 'unsorted' ? Unsorted
     : view === 'archive' ? Archive
     : FolderIcon
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-bg-weak flex items-center justify-center">
+        <Lottie animationData={bookmarkFillAnimation} loop style={{ width: 120, height: 120 }} />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -363,22 +422,7 @@ export default function Home() {
               <div className="flex flex-col">
                 {folders.map(folder => (
                   <div key={folder.id} className="relative group">
-                    {renamingFolderId === folder.id ? (
-                      <form
-                        onSubmit={e => { e.preventDefault(); handleRenameFolder(folder.id) }}
-                        className="flex items-center gap-[4px] px-[8px] py-[6px]"
-                      >
-                        <input
-                          autoFocus
-                          value={renameFolderName}
-                          onChange={e => setRenameFolderName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Escape') { setRenamingFolderId(null); setRenameFolderName('') } }}
-                          className={`${LABEL_SM} flex-1 min-w-0 border border-stroke-soft bg-bg-white rounded-4 px-[6px] py-[2px] text-text-strong outline-none`}
-                        />
-                      </form>
-                    ) : (
-                      <>
-                        <SidebarItem
+                    <SidebarItem
                           icon={<FolderIcon />}
                           label={folder.name}
                           active={view === folder.id}
@@ -408,7 +452,7 @@ export default function Home() {
                             <div className="h-px bg-stroke-soft" />
                             <div className="p-[8px] flex flex-col">
                               <button
-                                onClick={() => { handleDeleteFolder(folder.id); setFolderMenuOpen(null) }}
+                                onClick={() => { setDeleteFolderConfirmId(folder.id); setFolderMenuOpen(null) }}
                                 className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-error-base hover:bg-error-lighter transition-colors"
                               >
                                 <Trash className="shrink-0" />
@@ -417,8 +461,6 @@ export default function Home() {
                             </div>
                           </div>
                         )}
-                      </>
-                    )}
                   </div>
                 ))}
               </div>
@@ -427,24 +469,11 @@ export default function Home() {
 
           {/* Bottom section */}
           <div className="mt-auto flex flex-col">
-            {showNewFolder ? (
-              <form onSubmit={handleCreateFolder} className="px-[8px] py-[6px]">
-                <input
-                  autoFocus
-                  value={newFolderName}
-                  onChange={e => setNewFolderName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Escape') { setShowNewFolder(false); setNewFolderName('') } }}
-                  placeholder="Folder name"
-                  className={`${LABEL_SM} w-full border border-stroke-soft bg-bg-white rounded-4 px-[8px] py-[4px] text-text-strong placeholder:text-text-soft outline-none`}
-                />
-              </form>
-            ) : (
-              <SidebarItem
-                icon={<FolderAdd />}
-                label="New folder"
-                onClick={() => setShowNewFolder(true)}
-              />
-            )}
+            <SidebarItem
+              icon={<FolderAdd />}
+              label="New folder"
+              onClick={() => { setNewFolderName(''); setShowNewFolder(true) }}
+            />
             <SidebarItem
               icon={<Settings />}
               label="Settings"
@@ -486,9 +515,7 @@ export default function Home() {
           )}
 
           <div className="flex-1 overflow-y-auto p-[8px] flex flex-col gap-[8px]">
-            {loading ? (
-              <p className={`${PARA_XS} text-text-soft px-[8px] py-[8px]`}>Loading…</p>
-            ) : grouped.length === 0 ? (
+            {grouped.length === 0 ? (
               <p className={`${PARA_XS} text-text-soft px-[8px] py-[8px]`}>Nothing here yet.</p>
             ) : (
               grouped.map(group => (
@@ -502,7 +529,7 @@ export default function Home() {
                         href={b.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group flex items-center justify-between min-h-[40px] px-[8px] py-[6px] rounded-8 hover:bg-bg-weak transition-colors"
+                        className={`group flex items-center justify-between min-h-[40px] px-[8px] py-[6px] rounded-8 transition-colors ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'bg-bg-weak' : 'hover:bg-bg-weak'}`}
                       >
                         <div className="flex flex-1 min-w-0 gap-[8px] items-center">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -517,16 +544,17 @@ export default function Home() {
                             {formatHost(b.url)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-[4px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className={`flex items-center gap-[4px] transition-opacity shrink-0 ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                           <button
-                            onClick={e => { e.preventDefault(); e.stopPropagation() }}
+                            onMouseDown={() => { folderPickerWasOpen.current = folderPickerOpen === b.id }}
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); if (folderPickerWasOpen.current) { setFolderPickerOpen(null) } else { setFolderPickerOpen(b.id); setBookmarkMenuOpen(null) } }}
                             className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
                             aria-label="Move to folder"
                           >
                             <FolderAdd />
                           </button>
                           <button
-                            onClick={e => { e.preventDefault(); e.stopPropagation(); setBookmarkMenuOpen(bookmarkMenuOpen === b.id ? null : b.id) }}
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); setBookmarkMenuOpen(bookmarkMenuOpen === b.id ? null : b.id); setFolderPickerOpen(null) }}
                             className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
                             aria-label="More options"
                           >
@@ -573,6 +601,32 @@ export default function Home() {
                           </div>
                         </div>
                       )}
+                      {folderPickerOpen === b.id && (
+                        <div
+                          ref={folderPickerRef}
+                          className="absolute right-0 top-full mt-[4px] z-20 bg-bg-white border border-stroke-soft rounded-12 flex flex-col overflow-hidden w-[183px] p-[8px]"
+                          style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+                        >
+                          {folders.map(folder => (
+                            <button
+                              key={folder.id}
+                              onClick={() => handleMoveToFolder(b.id, folder.id, b.folder_ids.includes(folder.id))}
+                              className="flex items-center justify-between px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                            >
+                              <div className="flex items-center gap-[8px] min-w-0">
+                                <FolderIcon className="shrink-0 text-icon-soft" />
+                                <span className={`${LABEL_SM} truncate`}>{folder.name}</span>
+                              </div>
+                              {b.folder_ids.includes(folder.id) && (
+                                <Check className="shrink-0 text-text-sub" />
+                              )}
+                            </button>
+                          ))}
+                          {folders.length === 0 && (
+                            <p className={`${PARA_XS} text-text-soft px-[8px] py-[6px]`}>No folders yet</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -583,6 +637,130 @@ export default function Home() {
 
       </div>
     </div>
+
+    {/* Create folder modal */}
+    {showNewFolder && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={() => { setShowNewFolder(false); setNewFolderName('') }}>
+        <form
+          className="bg-bg-white border border-stroke-soft rounded-[20px] p-[16px] flex flex-col gap-[12px] w-[320px]"
+          style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+          onClick={e => e.stopPropagation()}
+          onSubmit={handleCreateFolder}
+        >
+          <div>
+            <input
+              autoFocus
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setShowNewFolder(false); setNewFolderName('') } }}
+              placeholder="Folder name"
+              className="w-full bg-bg-white border border-stroke-soft rounded-10 pl-[12px] pr-[10px] py-[10px] text-[14px] leading-[20px] tracking-[-0.084px] text-text-strong placeholder:text-text-soft outline-none"
+              style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
+            />
+          </div>
+          <div className="flex flex-col gap-[8px]">
+            <button
+              type="submit"
+              className="w-full bg-[#262626] text-white text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:opacity-90 transition-opacity"
+            >
+              Create
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowNewFolder(false); setNewFolderName('') }}
+              className="w-full bg-bg-white border border-stroke-soft text-text-sub text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:bg-bg-soft transition-colors"
+              style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+
+    {/* Rename folder modal */}
+    {renamingFolderId && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={() => { setRenamingFolderId(null); setRenameFolderName('') }}>
+        <form
+          className="bg-bg-white border border-stroke-soft rounded-[20px] p-[16px] flex flex-col gap-[12px] w-[320px]"
+          style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+          onClick={e => e.stopPropagation()}
+          onSubmit={e => { e.preventDefault(); handleRenameFolder(renamingFolderId) }}
+        >
+          <div>
+            <input
+              autoFocus
+              value={renameFolderName}
+              onChange={e => setRenameFolderName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setRenamingFolderId(null); setRenameFolderName('') } }}
+              placeholder="Folder name"
+              className="w-full bg-bg-white border border-stroke-soft rounded-10 pl-[12px] pr-[10px] py-[10px] text-[14px] leading-[20px] tracking-[-0.084px] text-text-strong placeholder:text-text-soft outline-none"
+              style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
+            />
+          </div>
+          <div className="flex flex-col gap-[8px]">
+            <button
+              type="submit"
+              className="w-full bg-[#262626] text-white text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:opacity-90 transition-opacity"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => { setRenamingFolderId(null); setRenameFolderName('') }}
+              className="w-full bg-bg-white border border-stroke-soft text-text-sub text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:bg-bg-soft transition-colors"
+              style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+
+    {/* Delete folder confirmation modal */}
+    {deleteFolderConfirmId && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"
+        onClick={() => setDeleteFolderConfirmId(null)}
+      >
+        <div
+          className="bg-bg-white border border-stroke-soft rounded-[20px] p-[16px] flex flex-col gap-[12px] w-[320px]"
+          style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex flex-col gap-[16px] items-center">
+            <div className="bg-error-lighter p-[8px] rounded-10">
+              <Warning className="text-error-base" width={24} height={24} />
+            </div>
+            <div className="flex flex-col gap-[4px] text-center w-full">
+              <p className="text-[16px] leading-[24px] tracking-[-0.176px] font-medium text-text-strong">
+                Delete folder?
+              </p>
+              <p className="text-[14px] leading-[20px] tracking-[-0.084px] text-text-sub">
+                This will permanently delete this folder and all its bookmarks.{' '}
+                <span className="font-medium">This action can&apos;t be undone.</span>
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-[8px] w-full">
+            <button
+              onClick={() => { handleDeleteFolder(deleteFolderConfirmId); setDeleteFolderConfirmId(null) }}
+              className="w-full bg-error-base text-white text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:opacity-90 transition-opacity"
+            >
+              Delete folder
+            </button>
+            <button
+              onClick={() => setDeleteFolderConfirmId(null)}
+              className="w-full bg-bg-white border border-stroke-soft text-text-sub text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:bg-bg-soft transition-colors"
+              style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Toast notifications */}
     <div className="fixed bottom-[20px] left-1/2 -translate-x-1/2 flex flex-col gap-[8px] z-50 pointer-events-none items-center">

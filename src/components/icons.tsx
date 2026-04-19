@@ -156,6 +156,17 @@ export function Menu(props: IconProps) {
   )
 }
 
+export function Check(props: IconProps) {
+  // Figma: checkmark path centered in 16×16 frame, inset 24.48% top / 20.31% sides → translate(3.25, 3.92)
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <g transform="translate(3.25, 3.92)">
+        <path d="M8.14217 0.309702C8.38522 -0.0255063 8.85467 -0.100208 9.19003 0.14271C9.52523 0.385758 9.59994 0.855203 9.35702 1.19056L4.04549 8.52357C3.91845 8.69896 3.72113 8.81057 3.50546 8.83021C3.28985 8.84978 3.0761 8.77562 2.91952 8.62611L0.232018 6.0597C-0.0675622 5.77365 -0.0784465 5.29874 0.207604 4.99916C0.493661 4.69964 0.967616 4.68871 1.26717 4.97474L3.33358 6.9474L8.14217 0.309702Z" />
+      </g>
+    </svg>
+  )
+}
+
 export function MateLogo({ className }: { className?: string }) {
   return (
     <div className={`relative${className ? ` ${className}` : ''}`} style={{ width: 76, height: 24 }}>
