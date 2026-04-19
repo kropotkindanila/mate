@@ -224,18 +224,22 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-bg-weak flex justify-center p-[16px]">
       <div className="w-full max-w-[700px] flex gap-[15px] h-[calc(100vh-32px)]">
+
         {/* Sidebar */}
-        <aside className="w-[193px] shrink-0 flex flex-col overflow-y-auto">
+        <aside className="w-[193px] shrink-0 flex flex-col gap-[8px] py-[8px] overflow-y-auto">
+
           {/* Logo */}
-          <div className="flex items-center gap-[6px] px-[12px] py-[8px] mb-[8px]">
-            <span className="text-orange-brand">
-              <BookmarkIcon />
-            </span>
-            <span className={`${LABEL_SM} text-text-strong`}>mate</span>
+          <div className="h-[36px] flex items-center px-[10px] shrink-0">
+            <div className="flex items-center gap-[8px]">
+              <span className="text-orange-brand">
+                <BookmarkIcon width={20} height={20} viewBox="0 0 16 16" />
+              </span>
+              <span className={`${LABEL_SM} text-text-strong`}>mate</span>
+            </div>
           </div>
 
-          {/* Main section */}
-          <nav className="flex flex-col gap-[2px]">
+          {/* Main nav */}
+          <nav className="flex flex-col shrink-0">
             <SidebarItem
               icon={<Search />}
               label="Search"
@@ -266,10 +270,10 @@ export default function Home() {
           </nav>
 
           {/* Folders section */}
-          <div className="mt-[16px]">
+          <div className="flex flex-col shrink-0">
             <button
               onClick={() => setFoldersOpen(v => !v)}
-              className="w-full flex items-center justify-between px-[12px] py-[8px] text-text-soft hover:text-text-sub transition-colors"
+              className="w-full flex items-center gap-[4px] px-[12px] py-[6px] rounded-10 text-text-soft hover:text-text-sub transition-colors"
             >
               <span className={SUBHEAD}>Folders</span>
               <span className="text-icon-soft">
@@ -277,7 +281,7 @@ export default function Home() {
               </span>
             </button>
             {foldersOpen && (
-              <div className="flex flex-col gap-[2px]">
+              <div className="flex flex-col">
                 {folders.map(folder => (
                   <div key={folder.id} className="relative group">
                     {renamingFolderId === folder.id ? (
@@ -333,7 +337,7 @@ export default function Home() {
           </div>
 
           {/* Bottom section */}
-          <div className="mt-auto pt-[16px] flex flex-col gap-[2px]">
+          <div className="mt-auto flex flex-col">
             {showNewFolder ? (
               <form onSubmit={handleCreateFolder} className="px-[8px] py-[6px]">
                 <input
@@ -362,16 +366,16 @@ export default function Home() {
 
         {/* Main area */}
         <main className="flex-1 min-w-0 bg-bg-white border border-stroke-soft rounded-16 flex flex-col overflow-hidden">
-          <header className="flex items-center justify-between py-[12px] px-[16px] border-b border-stroke-soft">
-            <div className="flex items-center gap-[8px]">
-              <span className="text-icon-strong">
+          <header className="flex items-center gap-[4px] py-[12px] pl-[16px] pr-[12px] border-b border-stroke-soft shrink-0">
+            <div className="flex items-center gap-[8px] flex-1 min-w-0">
+              <span className="text-icon-strong shrink-0">
                 <CurrentIcon />
               </span>
-              <span className={`${LABEL_SM} text-text-strong`}>{currentViewLabel}</span>
+              <span className={`${LABEL_SM} text-text-strong truncate`}>{currentViewLabel}</span>
             </div>
             <button
               onClick={() => setShowAddUrl(v => !v)}
-              className="w-[28px] h-[28px] rounded-8 flex items-center justify-center text-icon-strong hover:bg-bg-soft transition-colors"
+              className="p-[6px] rounded-8 flex items-center justify-center text-icon-strong hover:bg-bg-soft transition-colors shrink-0"
               aria-label="Add bookmark"
             >
               <Plus />
@@ -379,7 +383,7 @@ export default function Home() {
           </header>
 
           {showAddUrl && (
-            <form onSubmit={handleSaveUrl} className="px-[16px] py-[8px] border-b border-stroke-soft">
+            <form onSubmit={handleSaveUrl} className="px-[16px] py-[8px] border-b border-stroke-soft shrink-0">
               <input
                 autoFocus
                 value={newUrl}
@@ -392,15 +396,15 @@ export default function Home() {
             </form>
           )}
 
-          <div className="flex-1 overflow-y-auto p-[8px]">
+          <div className="flex-1 overflow-y-auto p-[8px] flex flex-col gap-[8px]">
             {loading ? (
               <p className={`${PARA_XS} text-text-soft px-[8px] py-[8px]`}>Loading…</p>
             ) : grouped.length === 0 ? (
               <p className={`${PARA_XS} text-text-soft px-[8px] py-[8px]`}>Nothing here yet.</p>
             ) : (
               grouped.map(group => (
-                <div key={group.label} className="mb-[4px]">
-                  <div className={`${SUBHEAD} text-text-soft py-[8px] px-[8px]`}>
+                <div key={group.label}>
+                  <div className={`${SUBHEAD} text-text-soft pb-[4px] pt-[8px] px-[8px]`}>
                     {group.label}
                   </div>
                   {group.items.map(b => (
@@ -409,7 +413,7 @@ export default function Home() {
                       href={b.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-[8px] h-[40px] px-[8px] py-[6px] rounded-8 hover:bg-bg-soft transition-colors"
+                      className="flex items-center gap-[8px] min-h-[40px] px-[8px] py-[6px] rounded-8 hover:bg-bg-soft transition-colors"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -429,6 +433,7 @@ export default function Home() {
             )}
           </div>
         </main>
+
       </div>
     </div>
   )
@@ -451,7 +456,7 @@ function SidebarItem({
     <button
       onClick={onClick}
       className={[
-        'w-full flex items-center gap-[8px] h-[36px] px-[12px] py-[8px] rounded-10 transition-colors text-left',
+        'w-full flex items-center gap-[8px] px-[12px] py-[8px] rounded-10 transition-colors text-left',
         active
           ? 'bg-bg-soft text-text-strong'
           : 'text-text-sub hover:bg-bg-soft/50',
@@ -468,7 +473,7 @@ function SidebarItem({
 
 function Shortcut({ children }: { children: React.ReactNode }) {
   return (
-    <span className={`${PARA_XS} bg-bg-soft text-text-soft rounded-4 px-[6px] py-[2px]`}>
+    <span className={`${PARA_XS} bg-bg-soft text-text-soft rounded-4 px-[4px] py-[0px]`}>
       {children}
     </span>
   )
