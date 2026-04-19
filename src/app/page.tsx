@@ -22,6 +22,7 @@ import {
   Warning,
   Success,
   Check,
+  BookmarkRemove,
   MateLogo,
 } from '@/components/icons'
 
@@ -517,7 +518,7 @@ export default function Home() {
 
           <div className="flex-1 overflow-y-auto p-[8px] flex flex-col gap-[8px]">
             {grouped.length === 0 ? (
-              <p className={`${PARA_XS} text-text-soft px-[8px] py-[8px]`}>Nothing here yet.</p>
+              <EmptyState view={view} />
             ) : (
               grouped.map(group => (
                 <div key={group.label}>
@@ -834,5 +835,53 @@ function Shortcut({ children }: { children: React.ReactNode }) {
 function Count({ children }: { children: React.ReactNode }) {
   return (
     <span className={`${PARA_XS} text-text-soft`}>{children}</span>
+  )
+}
+
+function EmptyState({ view }: { view: string }) {
+  const config: Record<string, { icon: React.ReactNode; title: string; subtitle: string; shortcut?: string }> = {
+    all: {
+      icon: <BookmarkRemove className="text-text-soft" />,
+      title: 'No bookmarks yet',
+      subtitle: 'Paste a link to get started.',
+      shortcut: '⌘V',
+    },
+    unsorted: {
+      icon: <Unsorted className="text-text-soft" width={24} height={24} />,
+      title: 'No unsorted bookmarks',
+      subtitle: 'All your bookmarks are in a folder.',
+    },
+    archive: {
+      icon: <Archive className="text-text-soft" width={24} height={24} />,
+      title: 'Nothing archived',
+      subtitle: 'Archived bookmarks will appear here.',
+    },
+  }
+
+  const { icon, title, subtitle, shortcut } = config[view] ?? {
+    icon: <FolderIcon className="text-text-soft" width={24} height={24} />,
+    title: 'This folder is empty',
+    subtitle: 'Paste a link to add a bookmark.',
+    shortcut: '⌘V',
+  }
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-[12px] py-[24px]">
+      <div className="flex flex-col items-center gap-[12px]">
+        {icon}
+        <div className="flex flex-col items-center gap-[4px]">
+          <p className={`${LABEL_SM} text-text-sub`}>{title}</p>
+          <div className="flex flex-col items-center gap-[4px]">
+            <p className={`${PARA_XS} text-text-soft text-center`}>{subtitle}</p>
+            {shortcut && (
+              <div className="flex items-center gap-[4px]">
+                <p className={`${PARA_XS} text-text-soft`}>Just press:</p>
+                <span className={`${PARA_XS} bg-bg-soft text-text-soft rounded-4 px-[4px]`}>{shortcut}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
