@@ -163,6 +163,9 @@ export default function Home() {
   const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null)
 
   const [toasts, setToasts] = useState<Toast[]>([])
+
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const toastCounter = useRef(0)
   const folderPickerRef = useRef<HTMLDivElement | null>(null)
   const folderPickerWasOpen = useRef(false)
@@ -214,6 +217,21 @@ export default function Home() {
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [folderPickerOpen])
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setShowSearch(true)
+      }
+      if (e.key === 'Escape') {
+        setShowSearch(false)
+        setSearchQuery('')
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   useEffect(() => {
     async function handleKeyDown(e: KeyboardEvent) {
@@ -391,6 +409,17 @@ export default function Home() {
 
   const grouped = useMemo(() => groupBookmarksByDate(visibleBookmarks), [visibleBookmarks])
 
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return { bookmarks: [], folders: [] }
+    return {
+      bookmarks: bookmarks
+        .filter(b => !b.archived && ((b.title?.toLowerCase().includes(q)) || b.url.toLowerCase().includes(q)))
+        .slice(0, 5),
+      folders: folders.filter(f => f.name.toLowerCase().includes(q)).slice(0, 5),
+    }
+  }, [bookmarks, folders, searchQuery])
+
   const unsortedCount = bookmarks.filter(b => b.folder_ids.length === 0).length
   const allCount = bookmarks.length
 
@@ -433,7 +462,7 @@ export default function Home() {
               icon={<Search />}
               label="Search"
               active={false}
-              onClick={() => { /* search placeholder */ }}
+              onClick={() => setShowSearch(true)}
               right={<Shortcut>⌘F</Shortcut>}
             />
             <SidebarItem
@@ -816,6 +845,100 @@ export default function Home() {
               Cancel
             </button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* Search modal */}
+    {showSearch && (
+      <div
+        className="fixed inset-0 z-50 flex items-start justify-center pt-[80px]"
+        style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(255,255,255,0.01)' }}
+        onClick={() => { setShowSearch(false); setSearchQuery('') }}
+      >
+        <div
+          className="w-[448px] rounded-12 bg-bg-white border border-stroke-soft overflow-hidden"
+          style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Search input row */}
+          <div className="flex items-center gap-[4px] px-[12px] py-[12px] border-b border-stroke-soft">
+            <div className="flex flex-1 items-center gap-[8px]">
+              <span className="text-text-soft shrink-0"><Search /></span>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent outline-none text-[14px] leading-[20px] tracking-[-0.084px] font-medium text-text-strong placeholder:text-text-soft"
+              />
+            </div>
+            <span
+              className="bg-bg-soft rounded-4 px-[4px] text-[12px] leading-[16px] text-text-soft cursor-pointer select-none"
+              onClick={() => { setShowSearch(false); setSearchQuery('') }}
+            >
+              esc
+            </span>
+          </div>
+
+          {/* Results */}
+          {searchQuery.trim() && (
+            <div className="py-[4px]">
+              {searchResults.bookmarks.length > 0 && (
+                <>
+                  <div className="px-[12px] pt-[8px] pb-[4px] text-[11px] leading-[12px] tracking-[0.22px] font-medium uppercase text-text-soft">
+                    Bookmarks
+                  </div>
+                  {searchResults.bookmarks.map(b => (
+                    <div
+                      key={b.id}
+                      className="flex items-center gap-[8px] px-[12px] py-[6px] hover:bg-bg-weak cursor-pointer"
+                      onClick={() => { window.open(b.url, '_blank'); setShowSearch(false); setSearchQuery('') }}
+                    >
+                      <div className="w-[20px] h-[20px] rounded-4 bg-bg-soft flex items-center justify-center shrink-0 overflow-hidden">
+                        <FaviconWithFallback url={b.url} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[14px] leading-[20px] tracking-[-0.084px] font-medium text-text-strong truncate">
+                          {b.title || b.url}
+                        </span>
+                        {b.title && (
+                          <span className="text-[12px] leading-[16px] text-text-soft truncate">
+                            {(() => { try { return new URL(b.url).hostname } catch { return b.url } })()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+              {searchResults.folders.length > 0 && (
+                <>
+                  <div className="px-[12px] pt-[8px] pb-[4px] text-[11px] leading-[12px] tracking-[0.22px] font-medium uppercase text-text-soft">
+                    Folders
+                  </div>
+                  {searchResults.folders.map(f => (
+                    <div
+                      key={f.id}
+                      className="flex items-center gap-[8px] px-[12px] py-[8px] hover:bg-bg-weak cursor-pointer"
+                      onClick={() => { setView(f.id); setShowSearch(false); setSearchQuery('') }}
+                    >
+                      <span className="text-text-soft shrink-0"><FolderIcon /></span>
+                      <span className="text-[14px] leading-[20px] tracking-[-0.084px] font-medium text-text-strong truncate">
+                        {f.name}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
+              {searchResults.bookmarks.length === 0 && searchResults.folders.length === 0 && (
+                <div className="px-[12px] py-[16px] text-[14px] leading-[20px] text-text-soft text-center">
+                  No results for &ldquo;{searchQuery.trim()}&rdquo;
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     )}
