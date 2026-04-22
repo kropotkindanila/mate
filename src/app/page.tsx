@@ -24,11 +24,13 @@ import {
   Check,
   BookmarkRemove,
   MateLogo,
+  NoFaviconIcon,
 } from '@/components/icons'
 
 type Bookmark = {
   id: string
   url: string
+  title: string | null
   created_at: string
   folder_ids: string[]
   archived: boolean
@@ -67,10 +69,33 @@ function formatHost(url: string) {
 function faviconUrl(url: string) {
   try {
     const host = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?domain=${host}&sz=16`
+    return `https://icons.duckduckgo.com/ip3/${host}.ico`
   } catch {
-    return `https://www.google.com/s2/favicons?domain=${url}&sz=32`
+    return null
   }
+}
+
+function FaviconWithFallback({ url }: { url: string }) {
+  const [loaded, setLoaded] = useState(false)
+  const src = faviconUrl(url)
+
+  return (
+    <>
+      {!loaded && <NoFaviconIcon className="text-icon-soft shrink-0" />}
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          width={20}
+          height={20}
+          className={loaded ? 'w-[20px] h-[20px]' : 'hidden'}
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(false)}
+        />
+      )}
+    </>
+  )
 }
 
 function groupBookmarksByDate(bookmarks: Bookmark[]) {
@@ -149,7 +174,11 @@ export default function Home() {
         return
       }
       setUserId(user.id)
-      await Promise.all([fetchBookmarks(), fetchFolders()])
+      const [loaded] = await Promise.all([fetchBookmarks(), fetchFolders()])
+      const untitled = loaded?.filter(b => !b.title) ?? []
+      for (const b of untitled) {
+        await fetchAndUpdateTitle(b.id, b.url)
+      }
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -211,6 +240,7 @@ export default function Home() {
           }
           fetchBookmarks()
           showToast('Link pasted', 'success')
+          fetchAndUpdateTitle(inserted.id, text)
         }
       } catch {
         // clipboard access denied or unavailable
@@ -220,20 +250,36 @@ export default function Home() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [userId, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function fetchAndUpdateTitle(bookmarkId: string, url: string) {
+    try {
+      const res = await fetch(`/api/fetch-title?url=${encodeURIComponent(url)}`)
+      const { title } = await res.json()
+      if (title) {
+        await supabase.from('bookmarks').update({ title }).eq('id', bookmarkId)
+        setBookmarks(prev => prev.map(b => b.id === bookmarkId ? { ...b, title } : b))
+      }
+    } catch {
+      // title fetch failed — keep showing the URL
+    }
+  }
+
   async function fetchBookmarks() {
     const { data } = await supabase
       .from('bookmarks')
-      .select('id, url, created_at, archived, bookmark_folders(folder_id)')
+      .select('id, url, title, created_at, archived, bookmark_folders(folder_id)')
       .order('created_at', { ascending: false })
-    type Row = { id: string; url: string; created_at: string; archived: boolean; bookmark_folders: { folder_id: string }[] }
-    setBookmarks((data ?? []).map((b: Row) => ({
+    type Row = { id: string; url: string; title: string | null; created_at: string; archived: boolean; bookmark_folders: { folder_id: string }[] }
+    const mapped = (data ?? []).map((b: Row) => ({
       id: b.id,
       url: b.url,
+      title: b.title ?? null,
       created_at: b.created_at,
       archived: b.archived,
       folder_ids: (b.bookmark_folders ?? []).map((bf) => bf.folder_id),
-    })))
+    }))
+    setBookmarks(mapped)
     setLoading(false)
+    return mapped
   }
 
   async function fetchFolders() {
@@ -266,6 +312,7 @@ export default function Home() {
       setNewUrl('')
       setShowAddUrl(false)
       fetchBookmarks()
+      fetchAndUpdateTitle(inserted.id, normalized)
     }
   }
 
@@ -533,18 +580,20 @@ export default function Home() {
                         rel="noopener noreferrer"
                         className={`group flex items-center justify-between min-h-[40px] px-[8px] py-[6px] rounded-8 transition-colors ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'bg-bg-weak' : 'hover:bg-bg-weak'}`}
                       >
-                        <div className="flex flex-1 min-w-0 gap-[8px] items-center">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={faviconUrl(b.url)}
-                            alt=""
-                            width={16}
-                            height={16}
-                            className="w-[16px] h-[16px] shrink-0"
-                          />
-                          <span className={`${LABEL_SM} text-text-strong truncate`}>
-                            {formatHost(b.url)}
-                          </span>
+                        <div className="flex flex-1 min-w-0 gap-[10px] items-center">
+                          <div className="bg-bg-weak rounded-8 p-[6px] shrink-0 flex items-center justify-center">
+                            <FaviconWithFallback url={b.url} />
+                          </div>
+                          <div className="flex flex-col min-w-0 gap-[2px]">
+                            <span className={`${LABEL_SM} text-text-strong truncate`}>
+                              {b.title || formatHost(b.url)}
+                            </span>
+                            {b.title && (
+                              <span className={`${PARA_XS} font-medium text-text-soft truncate`}>
+                                {formatHost(b.url)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className={`flex items-center gap-[4px] transition-opacity shrink-0 ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                           <button
