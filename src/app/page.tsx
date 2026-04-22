@@ -412,11 +412,33 @@ export default function Home() {
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return { bookmarks: [], folders: [] }
+
+    const matchedFolders = folders.filter(f => f.name.toLowerCase().includes(q))
+    const matchedFolderIds = new Set(matchedFolders.map(f => f.id))
+
+    const seen = new Set<string>()
+    const result: typeof bookmarks = []
+
+    // Bookmarks from matched folders first
+    for (const b of bookmarks) {
+      if (b.archived) continue
+      if (b.folder_ids.some(id => matchedFolderIds.has(id))) {
+        seen.add(b.id)
+        result.push(b)
+      }
+    }
+
+    // Then text-matched bookmarks not already included
+    for (const b of bookmarks) {
+      if (b.archived || seen.has(b.id)) continue
+      if ((b.title?.toLowerCase().includes(q)) || b.url.toLowerCase().includes(q)) {
+        result.push(b)
+      }
+    }
+
     return {
-      bookmarks: bookmarks
-        .filter(b => !b.archived && ((b.title?.toLowerCase().includes(q)) || b.url.toLowerCase().includes(q)))
-        .slice(0, 5),
-      folders: folders.filter(f => f.name.toLowerCase().includes(q)).slice(0, 5),
+      bookmarks: result.slice(0, 7),
+      folders: matchedFolders.slice(0, 3),
     }
   }, [bookmarks, folders, searchQuery])
 
