@@ -24,7 +24,6 @@ import {
   Check,
   BookmarkRemove,
   MateLogo,
-  NoFaviconIcon,
 } from '@/components/icons'
 
 type Bookmark = {
@@ -66,6 +65,14 @@ function formatHost(url: string) {
   }
 }
 
+const FALLBACK_EMOJIS = ['🎯','🚀','💡','📚','🎨','🔮','🌟','🎭','🦋','🌈','🔥','💎','🎪','🌊','🎵','🦄','🍀','🎲','🌺','⚡']
+
+function getFallbackEmoji(url: string) {
+  let hash = 0
+  for (let i = 0; i < url.length; i++) hash = (hash + url.charCodeAt(i)) % FALLBACK_EMOJIS.length
+  return FALLBACK_EMOJIS[hash]
+}
+
 function faviconUrl(url: string) {
   try {
     const host = new URL(url).hostname
@@ -81,7 +88,7 @@ function FaviconWithFallback({ url }: { url: string }) {
 
   return (
     <>
-      {!loaded && <NoFaviconIcon className="text-icon-soft shrink-0" />}
+      {!loaded && <span className="text-[16px] leading-none">{getFallbackEmoji(url)}</span>}
       {src && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
