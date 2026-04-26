@@ -636,7 +636,7 @@ export default function Home() {
                         href={b.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`group flex items-center justify-between min-h-[40px] px-[8px] py-[6px] rounded-8 transition-colors ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'bg-bg-weak' : 'hover:bg-bg-weak'}`}
+                        className={`group flex items-center gap-[12px] min-h-[40px] px-[8px] py-[6px] rounded-8 transition-colors ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'bg-bg-weak' : 'hover:bg-bg-weak'}`}
                       >
                         <div className="flex flex-1 min-w-0 gap-[10px] items-center">
                           <div className="bg-bg-weak rounded-8 p-[6px] shrink-0 flex items-center justify-center">
@@ -653,23 +653,73 @@ export default function Home() {
                             )}
                           </div>
                         </div>
-                        <div className={`flex items-center gap-[4px] transition-opacity shrink-0 ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                          <button
-                            onMouseDown={() => { folderPickerWasOpen.current = folderPickerOpen === b.id }}
-                            onClick={e => { e.preventDefault(); e.stopPropagation(); if (folderPickerWasOpen.current) { setFolderPickerOpen(null) } else { setFolderPickerOpen(b.id); setBookmarkMenuOpen(null) } }}
-                            className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
-                            aria-label="Move to folder"
-                          >
-                            <FolderAdd />
-                          </button>
-                          <button
-                            onClick={e => { e.preventDefault(); e.stopPropagation(); setBookmarkMenuOpen(bookmarkMenuOpen === b.id ? null : b.id); setFolderPickerOpen(null) }}
-                            className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
-                            aria-label="More options"
-                          >
-                            <Menu />
-                          </button>
-                        </div>
+                        {b.folder_ids.length > 0 ? (
+                          <div className="relative shrink-0 flex items-center">
+                            <div className={`flex items-center gap-[4px] transition-opacity pointer-events-none ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'opacity-0' : 'opacity-100 group-hover:opacity-0'}`}>
+                              {folders.find(f => f.id === b.folder_ids[0]) && (
+                                <span className={`${PARA_XS} font-medium text-text-sub whitespace-nowrap`}>
+                                  {folders.find(f => f.id === b.folder_ids[0])!.name}
+                                </span>
+                              )}
+                              {b.folder_ids.length > 1 && (
+                                <div className="relative group/more pointer-events-auto flex items-center">
+                                  <span className={`${PARA_XS} font-medium text-text-sub whitespace-nowrap`}>+{b.folder_ids.length - 1}</span>
+                                  <div className="absolute right-0 top-full pt-[4px] hidden group-hover/more:flex flex-col z-30 pointer-events-none">
+                                    <div className="flex justify-end pr-[4px]">
+                                      <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-b-[4px] border-l-transparent border-r-transparent border-b-[#171717]" />
+                                    </div>
+                                    <div
+                                      className="bg-[#171717] rounded-[4px] px-[6px] py-[2px]"
+                                      style={{ boxShadow: '0px 12px 24px 0px rgba(14,18,27,0.06), 0px 1px 2px 0px rgba(14,18,27,0.03)' }}
+                                    >
+                                      {b.folder_ids.slice(1).map(folderId => {
+                                        const folder = folders.find(f => f.id === folderId)
+                                        return folder ? (
+                                          <p key={folderId} className="text-[12px] leading-[16px] text-white whitespace-nowrap">{folder.name}</p>
+                                        ) : null
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className={`absolute right-0 inset-y-0 flex items-center gap-[4px] transition-opacity ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                              <button
+                                onMouseDown={() => { folderPickerWasOpen.current = folderPickerOpen === b.id }}
+                                onClick={e => { e.preventDefault(); e.stopPropagation(); if (folderPickerWasOpen.current) { setFolderPickerOpen(null) } else { setFolderPickerOpen(b.id); setBookmarkMenuOpen(null) } }}
+                                className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
+                                aria-label="Move to folder"
+                              >
+                                <FolderAdd />
+                              </button>
+                              <button
+                                onClick={e => { e.preventDefault(); e.stopPropagation(); setBookmarkMenuOpen(bookmarkMenuOpen === b.id ? null : b.id); setFolderPickerOpen(null) }}
+                                className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
+                                aria-label="More options"
+                              >
+                                <Menu />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`flex items-center gap-[4px] transition-opacity shrink-0 ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                            <button
+                              onMouseDown={() => { folderPickerWasOpen.current = folderPickerOpen === b.id }}
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); if (folderPickerWasOpen.current) { setFolderPickerOpen(null) } else { setFolderPickerOpen(b.id); setBookmarkMenuOpen(null) } }}
+                              className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
+                              aria-label="Move to folder"
+                            >
+                              <FolderAdd />
+                            </button>
+                            <button
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); setBookmarkMenuOpen(bookmarkMenuOpen === b.id ? null : b.id); setFolderPickerOpen(null) }}
+                              className="p-[6px] rounded-8 text-icon-soft hover:text-text-sub hover:bg-bg-soft transition-colors"
+                              aria-label="More options"
+                            >
+                              <Menu />
+                            </button>
+                          </div>
+                        )}
                       </a>
                       {bookmarkMenuOpen === b.id && (
                         <div
