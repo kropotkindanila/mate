@@ -160,6 +160,9 @@ export default function Home() {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameFolderName, setRenameFolderName] = useState('')
 
+  const [renamingBookmarkId, setRenamingBookmarkId] = useState<string | null>(null)
+  const [renameBookmarkTitle, setRenameBookmarkTitle] = useState('')
+
   const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null)
 
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -365,6 +368,15 @@ export default function Home() {
     setRenameFolderName('')
     fetchFolders()
     showToast('Folder renamed', 'success')
+  }
+
+  async function handleRenameBookmark(bookmarkId: string) {
+    if (!renameBookmarkTitle.trim()) return
+    await supabase.from('bookmarks').update({ title: renameBookmarkTitle.trim() }).eq('id', bookmarkId)
+    setRenamingBookmarkId(null)
+    setRenameBookmarkTitle('')
+    fetchBookmarks()
+    showToast('Renamed', 'success')
   }
 
   async function handleDeleteBookmark(bookmarkId: string) {
@@ -729,6 +741,12 @@ export default function Home() {
                         >
                           <div className="p-[8px] flex flex-col">
                             <button
+                              onClick={() => { setRenamingBookmarkId(b.id); setRenameBookmarkTitle(b.title || formatHost(b.url)); setBookmarkMenuOpen(null) }}
+                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                            >
+                              <span className={LABEL_SM}>Rename</span>
+                            </button>
+                            <button
                               onClick={() => { navigator.clipboard.writeText(b.url); setBookmarkMenuOpen(null); showToast('Link copied', 'success') }}
                               className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
                             >
@@ -827,6 +845,46 @@ export default function Home() {
             <button
               type="button"
               onClick={() => { setShowNewFolder(false); setNewFolderName('') }}
+              className="w-full bg-bg-white border border-stroke-soft text-text-sub text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:bg-bg-soft transition-colors"
+              style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+
+    {/* Rename bookmark modal */}
+    {renamingBookmarkId && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={() => { setRenamingBookmarkId(null); setRenameBookmarkTitle('') }}>
+        <form
+          className="bg-bg-white border border-stroke-soft rounded-[20px] p-[16px] flex flex-col gap-[12px] w-[320px]"
+          style={{ boxShadow: '0px 16px 32px -12px rgba(14,18,27,0.1)' }}
+          onClick={e => e.stopPropagation()}
+          onSubmit={e => { e.preventDefault(); handleRenameBookmark(renamingBookmarkId) }}
+        >
+          <div>
+            <input
+              autoFocus
+              value={renameBookmarkTitle}
+              onChange={e => setRenameBookmarkTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setRenamingBookmarkId(null); setRenameBookmarkTitle('') } }}
+              placeholder="Bookmark name"
+              className="w-full bg-bg-white border border-stroke-soft rounded-10 pl-[12px] pr-[10px] py-[10px] text-[14px] leading-[20px] tracking-[-0.084px] text-text-strong placeholder:text-text-soft outline-none"
+              style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
+            />
+          </div>
+          <div className="flex flex-col gap-[8px]">
+            <button
+              type="submit"
+              className="w-full bg-[#262626] text-white text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:opacity-90 transition-opacity"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => { setRenamingBookmarkId(null); setRenameBookmarkTitle('') }}
               className="w-full bg-bg-white border border-stroke-soft text-text-sub text-[14px] leading-[20px] tracking-[-0.084px] font-medium py-[8px] rounded-8 hover:bg-bg-soft transition-colors"
               style={{ boxShadow: '0px 1px 2px 0px rgba(10,13,20,0.03)' }}
             >
