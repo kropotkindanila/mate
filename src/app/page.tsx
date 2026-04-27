@@ -13,7 +13,7 @@ import {
   Folder as FolderIcon,
   FolderAdd,
   Plus,
-  Settings,
+  LogOut,
   ChevronOpen,
   ChevronClose,
   Menu,
@@ -600,8 +600,8 @@ export default function Home() {
               onClick={() => { setNewFolderName(''); setShowNewFolder(true) }}
             />
             <SidebarItem
-              icon={<Settings />}
-              label="Settings"
+              icon={<LogOut />}
+              label="Log out"
               onClick={handleLogout}
             />
           </div>
