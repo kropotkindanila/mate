@@ -20,6 +20,7 @@ const config: Config = {
         'icon-soft': 'var(--icon-soft-400)',
         'orange-brand': 'var(--orange-500)',
         'stroke-soft': 'var(--stroke-soft-200)',
+        'menu-hover': 'var(--bg-menu-hover)',
         'error-base': 'var(--error-base)',
         'error-lighter': 'var(--error-lighter)',
       },

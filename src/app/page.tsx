@@ -569,7 +569,7 @@ export default function Home() {
                             <div className="p-[8px] flex flex-col">
                               <button
                                 onClick={() => { setRenamingFolderId(folder.id); setRenameFolderName(folder.name); setFolderMenuOpen(null) }}
-                                className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                                className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-menu-hover transition-colors"
                               >
                                 <span className={LABEL_SM}>Rename</span>
                               </button>
@@ -748,13 +748,13 @@ export default function Home() {
                           <div className="p-[8px] flex flex-col">
                             <button
                               onClick={() => { setRenamingBookmarkId(b.id); setRenameBookmarkTitle(b.title || formatHost(b.url)); setBookmarkMenuOpen(null) }}
-                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-menu-hover transition-colors"
                             >
                               <span className={LABEL_SM}>Rename</span>
                             </button>
                             <button
                               onClick={() => { navigator.clipboard.writeText(b.url); setBookmarkMenuOpen(null); showToast('Link copied', 'success') }}
-                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-menu-hover transition-colors"
                             >
                               <Link className="shrink-0" />
                               <span className={LABEL_SM}>Copy link</span>
@@ -766,7 +766,7 @@ export default function Home() {
                                 setBookmarkMenuOpen(null)
                                 showToast('Archived', 'success')
                               }}
-                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                              className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-menu-hover transition-colors"
                             >
                               <Archive className="shrink-0" />
                               <span className={LABEL_SM}>Archive</span>
@@ -794,7 +794,7 @@ export default function Home() {
                             <button
                               key={folder.id}
                               onClick={() => handleMoveToFolder(b.id, folder.id, b.folder_ids.includes(folder.id))}
-                              className="flex items-center justify-between px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-bg-weak transition-colors"
+                              className="flex items-center justify-between px-[8px] py-[6px] rounded-6 w-full text-text-sub hover:bg-menu-hover transition-colors"
                             >
                               <div className="flex items-center gap-[8px] min-w-0">
                                 <FolderIcon className="shrink-0 text-icon-soft" />

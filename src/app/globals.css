@@ -41,6 +41,9 @@
   --radius-12: 12px;
   --radius-16: 16px;
 
+  /* Menu item hover */
+  --bg-menu-hover: #f7f7f7;
+
   /* State / Error */
   --error-base: #fb3748;
   --error-lighter: #ffebec;
@@ -58,6 +61,7 @@
     --icon-strong-950: #fafafa;
     --icon-soft-400: #6b6b6b;
     --stroke-soft-200: #2a2a2a;
+    --bg-menu-hover: #2a2a2a;
     --error-base: #e93544;
     --error-lighter: rgba(251, 55, 72, 0.16);
   }
