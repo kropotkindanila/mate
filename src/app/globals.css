@@ -58,6 +58,8 @@
     --icon-strong-950: #fafafa;
     --icon-soft-400: #6b6b6b;
     --stroke-soft-200: #2a2a2a;
+    --error-base: #e93544;
+    --error-lighter: rgba(251, 55, 72, 0.16);
   }
 }
 
