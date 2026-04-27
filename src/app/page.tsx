@@ -197,6 +197,12 @@ export default function Home() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    function onExtensionSave() { fetchBookmarks() }
+    window.addEventListener('mate-bookmark-saved', onExtensionSave)
+    return () => window.removeEventListener('mate-bookmark-saved', onExtensionSave)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (!folderMenuOpen) return
     function close() { setFolderMenuOpen(null) }
     document.addEventListener('click', close)
