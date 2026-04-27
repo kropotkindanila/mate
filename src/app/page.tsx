@@ -654,7 +654,7 @@ export default function Home() {
                         href={b.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`group flex items-center gap-[12px] min-h-[40px] px-[8px] py-[6px] rounded-8 transition-colors ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'bg-bg-weak' : 'hover:bg-bg-weak'}`}
+                        className={`group flex items-center gap-[12px] min-h-[40px] px-[8px] py-[6px] rounded-8 transition-colors ${folderPickerOpen === b.id || bookmarkMenuOpen === b.id ? 'bg-menu-hover' : 'hover:bg-menu-hover'}`}
                       >
                         <div className="flex flex-1 min-w-0 gap-[10px] items-center">
                           <div className="bg-bg-weak rounded-8 p-[6px] shrink-0 flex items-center justify-center">
