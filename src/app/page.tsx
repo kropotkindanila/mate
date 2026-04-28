@@ -173,6 +173,10 @@ export default function Home() {
   const folderPickerRef = useRef<HTMLDivElement | null>(null)
   const folderPickerWasOpen = useRef(false)
 
+  function playSound() {
+    new Audio('/saved.mp3').play().catch(() => {})
+  }
+
   function showToast(message: string, type: 'success' | 'error') {
     const id = ++toastCounter.current
     setToasts(prev => [...prev, { id, message, type }])
@@ -273,6 +277,7 @@ export default function Home() {
             await supabase.from('bookmark_folders').insert({ bookmark_id: inserted.id, folder_id })
           }
           fetchBookmarks()
+          playSound()
           showToast('Link pasted', 'success')
           fetchAndUpdateTitle(inserted.id, text)
         }
@@ -346,6 +351,7 @@ export default function Home() {
       setNewUrl('')
       setShowAddUrl(false)
       fetchBookmarks()
+      playSound()
       fetchAndUpdateTitle(inserted.id, normalized)
     }
   }
